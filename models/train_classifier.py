@@ -20,6 +20,15 @@ import sys
 
 
 def load_data(database_filepath):
+    '''
+    This function is to import data from .db files.
+    inout:
+        database_filepath: path to the .db file
+    Output:
+        X: Extracted varibale columns (messages, genre) 
+        Y: Extracted category columns
+        category_names: column name of the categories
+    '''
     engine = create_engine(f'sqlite:///{database_filepath}')
     df = pd.read_sql_table('DisasterResponse_table', engine)
     X = df['message']
@@ -27,6 +36,17 @@ def load_data(database_filepath):
     return X, y, y.columns
 
 def tokenize(text):
+    '''
+    This function is for tokenizing a given text 
+    (eg. each message from X in the model). Steps include
+    tokenizing sentences into words, lemmatizing (words root), 
+    normalizing (all to lower case), removing stop words and empty spaces
+    
+    Input:
+        text: a given text (a message at a time)
+    output:
+        clean_tokens: cleaned tokens to be used in the model        
+    '''
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     detected_urls = re.findall(url_regex, text)
     for url in detected_urls:
@@ -44,6 +64,29 @@ def tokenize(text):
 
 
 def build_model():
+    '''
+    This function creates a model. We make the model
+    first by defining a pipeline that encloses all the
+    transforming steps to make the features ready for
+    the estimator/predictor. 
+    
+    The transformation is done in 2 parallel steps:
+    1) to the text column (messages) to turn them into 
+    vectors for the model to use.
+    2) to the genre column to turn it into dummy columns
+    
+    The result of both steps are then concatenated together 
+    and fed to the model. As the model should do a 
+    multi-classification based on the input features, 
+    a AdaBoostClassifier is used inside a MultiOutputClassifier
+    to fit the classification per target.
+    
+    The pipeline and the parameters that we need to tune in the model
+    are then given to a GridSearchCV to do the cross validation.
+    
+    Input: Non
+    Output: a tuned and optimized classification model (cv)
+    '''
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
