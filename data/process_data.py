@@ -6,8 +6,18 @@ import sqlite3
 import sqlalchemy
 from sqlalchemy import create_engine
 
-# Loading, merging data and creating a dataframe
+# Loading data
 def load_data(messages_filepath, categories_filepath):
+    '''
+    This function loads data from csv files.
+    Input: 
+        messages_filepath: the path to the csv 
+        file where message data is saved. 
+        categories_filepath: the path to the csv 
+        file where category data is saved.
+    Output: gives a merged data set from messages 
+        and categories datasets.
+    '''
     messages = pd.read_csv(messages_filepath)
     categories = pd.read_csv(categories_filepath)
     df = messages.merge(categories, how ='outer', on =['id'])
@@ -15,6 +25,19 @@ def load_data(messages_filepath, categories_filepath):
 
 # Cleaning data by splitting, dropping duplicates, replacing values 2 by 1 on related column
 def clean_data(df):
+    '''
+    This function cleans the input data. 
+    The cleaning includes, splitting the text data
+    in the categories column into separate columns 
+    (36 in total), converting category values to binary 
+    and removing duplicates.    
+    Input: 
+        df: input dataframe which is obtained from 
+        merging "messages" and categories" datasets
+        
+    Output: 
+        df: cleaned dataframe    
+    '''
     categories = df['categories'].str.split(';', expand=True)
     row = categories.head(1)
     category_colnames = row.applymap(lambda x: x[:-2]).iloc[0,:]
@@ -29,8 +52,15 @@ def clean_data(df):
 
     return df
 
-# Saving data using sqlalchemy
+
 def save_data(df, database_filepath):
+    '''
+    This function saves and exports the input dataframe into a sqlite database.
+    Input:
+        df: input dataframe
+        database_filename: file path and name for the sql .db file
+    Output: Non
+    '''
     engine = create_engine(f'sqlite:///{database_filepath}')
     df.to_sql('DisasterResponse_table', engine, index=False, if_exists='replace')
 
