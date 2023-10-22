@@ -52,5 +52,5 @@ Udacity for providing an excellent Data Scientist training program. Figure Eight
 
 Below it can be seen the Web App developed for this project. Some screenshots of the program can be verified on the "Screenshots" folder.
 
-![Screenshot_WebApp](https://github.com/kcirne25/Disaster-response-pipeline/assets/66499199/9d6d10e9-79d9-4b1c-9901-7cb9f186f9f5)
+![Screenshot_WebApp](https://github.com/kcirne25/Disaster-response-pipeline/blob/main/Screenshots/Screenshot_WebApp.png)
 
