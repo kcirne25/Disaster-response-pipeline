@@ -16,34 +16,12 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.feature_extraction.text import TfidfTransformer, CountVectorizer
 from sklearn.multioutput import MultiOutputClassifier
 from sklearn.base import BaseEstimator, TransformerMixin
-
-# Function to load data from database
 import sys
-import pandas as pd
-import numpy as np
-import sqlite3
-import sqlalchemy
-import matplotlib.pyplot as plt
-import nltk
-import re
-import lightgbm as lgb
-import pickle
-from sqlalchemy import create_engine
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
-from sklearn.model_selection import GridSearchCV
-from sklearn.multioutput import MultiOutputClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
 
-nltk.download(['punkt', 'wordnet'])
 
-# Function to load data
 def load_data(database_filepath):
     engine = create_engine(f'sqlite:///{database_filepath}')
-    df = pd.read_sql_table("disaster_messages", con=engine)
+    df = pd.read_sql_table('DisasterResponse_table', engine)
     X = df['message']
     y = df[df.columns[4:]]
     return X, y, y.columns
@@ -64,41 +42,66 @@ def tokenize(text):
 
     return clean_tokens
 
+
 def build_model():
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(lgb.LGBMClassifier()))
+        ('clf', MultiOutputClassifier(AdaBoostClassifier()))
     ])
-    parameter = {
-        'clf__estimator__n_estimators' : [50, 100]
+    parameters = {
+        'clf__estimator__learning_rate': [0.5, 1.0],
+        'clf__estimator__n_estimators': [10, 20]
     }
-    cv = GridSearchCV(pipeline, param_grid=parameter, verbose=3)
+    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3)
 
     return cv
 
-def evaluate_model(model, X_test, y_test, category_names):
-    y_pred = model.predict(X_test)
-    print(classification_report(y_test, y_pred, target_names=category_names))
+
+def evaluate_model(model, X_test, Y_test, category_names):
+    """
+    Evaluate the model's performance.
+    
+    Args:
+        model (sklearn.pipeline.Pipeline): Trained machine learning model.
+        X_test (pd.DataFrame): Test features.
+        Y_test (pd.DataFrame): True labels for test data.
+        category_names (list): List of category names.
+    """
+    Y_pred = model.predict(X_test)
+    
+    for i, category in enumerate(category_names):
+        print(f'Category: {category}')
+        print(classification_report(Y_test.iloc[:, i], Y_pred[:, i]))
+
 
 def save_model(model, model_filepath):
-    pickle.dump(model, open(model_filepath, 'wb'))
+    """
+    Save the trained model.
+
+    Args:
+        model: Trained model.
+        model_filepath (str): Filepath to save the model.
+    """
+    with open(model_filepath, 'wb') as f:
+        pickle.dump(model, f)
+
 
 def main():
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
-        X, y, category_names = load_data(database_filepath)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
+        X, Y, category_names = load_data(database_filepath)
+        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
+        
         print('Building model...')
         model = build_model()
-
+        
         print('Training model...')
-        model.fit(X_train, y_train)
-
+        model.fit(X_train, Y_train)
+        
         print('Evaluating model...')
-        evaluate_model(model, X_test, y_test, category_names)
+        evaluate_model(model, X_test, Y_test, category_names)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)
