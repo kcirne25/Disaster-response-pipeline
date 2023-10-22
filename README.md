@@ -2,12 +2,12 @@
 
 ## Table of Contents
 
-  1 - Introduction
-  2 - Files Description
-  3 - Installation
-  4 - Instructions
-  5 - Acknowledgements
-  6 - Screenshots
+  1 - Introduction\
+  2 - Files Description\
+  3 - Installation\
+  4 - Instructions\
+  5 - Acknowledgements\
+  6 - Screenshots\
 
 ## 1 - Introduction
 This project is part of the Udacity's Data Scientist Nanodegree Program in collaboration with Appen (former Figure Eight).
@@ -22,7 +22,7 @@ run.py - python script to launch web application.
 Folder: templates - web dependency files (go.html & master.html) required to run the web application.
 
 ### Folder: data
-disaster_messages.csv - real messages sent during disaster events (provided by Figure Eight)
+disaster_messages.csv - real messages sent during disaster events (provided by Appen)
 disaster_categories.csv - categories of the messages
 process_data.py - ETL pipeline used to load, clean, extract feature and store data in SQLite database
 ETL Pipeline Preparation.ipynb - Jupyter Notebook used to prepare ETL pipeline
