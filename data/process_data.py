@@ -6,14 +6,14 @@ import sqlite3
 import sqlalchemy
 from sqlalchemy import create_engine
 
-# Loading data
+# Loading, merging data and creating a dataframe
 def load_data(messages_filepath, categories_filepath):
     messages = pd.read_csv(messages_filepath)
     categories = pd.read_csv(categories_filepath)
     df = messages.merge(categories, how ='outer', on =['id'])
     return df
 
-# Cleaning data
+# Cleaning data by splitting, dropping duplicates, replacing values 2 by 1 on related column
 def clean_data(df):
     categories = df['categories'].str.split(';', expand=True)
     row = categories.head(1)
@@ -29,10 +29,10 @@ def clean_data(df):
 
     return df
 
-
+# Saving data using sqlalchemy
 def save_data(df, database_filepath):
     engine = create_engine(f'sqlite:///{database_filepath}')
-    df.to_sql('disaster_messages', engine, index=False, if_exists='replace')
+    df.to_sql('DisasterResponse_table', engine, index=False, if_exists='replace')
 
 def main():
     if len(sys.argv) == 4:
