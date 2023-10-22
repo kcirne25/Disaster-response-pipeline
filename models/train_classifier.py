@@ -18,148 +18,99 @@ from sklearn.multioutput import MultiOutputClassifier
 from sklearn.base import BaseEstimator, TransformerMixin
 
 # Function to load data from database
+import sys
+import pandas as pd
+import numpy as np
+import sqlite3
+import sqlalchemy
+import matplotlib.pyplot as plt
+import nltk
+import re
+import lightgbm as lgb
+import pickle
+from sqlalchemy import create_engine
+from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
+from sklearn.model_selection import GridSearchCV
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+
+nltk.download(['punkt', 'wordnet'])
+
+# Function to load data
 def load_data(database_filepath):
-    """
-    Load data from database.
-
-    Args:
-        database_filepath (str): Filepath of the database.
-
-    Returns:
-        tuple: A tuple containing features (X), labels (Y), and category names.
-    """
     engine = create_engine(f'sqlite:///{database_filepath}')
-    df = pd.read_sql_table('DisasterResponse_table', engine)
-    
-    # Removing 'child_alone' column as it is not meaningful
-    df = df.drop(['child_alone'], axis=1)
-    
-    # Replacing value '2' with '1' on related column
-    df['related'] = df['related'].map(lambda x: 1 if x==2 else x)
-    
+    df = pd.read_sql_table("disaster_messages", con=engine)
     X = df['message']
-    Y = df.iloc[:, 4:]
-    
-    category_names = Y.columns.tolist()
-    
-    return X, Y, category_names
+    y = df[df.columns[4:]]
+    return X, y, y.columns
 
-# Tokenization function
 def tokenize(text):
-    """
-    Tokenize text.
-
-    Args:
-        text (str): Input text.
-
-    Returns:
-        list: List of clean tokens.
-    """
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     detected_urls = re.findall(url_regex, text)
     for url in detected_urls:
         text = text.replace(url, "urlplaceholder")
 
     tokens = word_tokenize(text)
+    tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
-
-    clean_tokens = []
+    clean_tokens=[]
     for tok in tokens:
         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
         clean_tokens.append(clean_tok)
 
     return clean_tokens
 
-# Custom transformer to extract starting verb
-class StartingVerbExtractor(BaseEstimator, TransformerMixin):
-
-    def starting_verb(self, text):
-        sentence_list = nltk.sent_tokenize(text)
-        for sentence in sentence_list:
-            pos_tags = nltk.pos_tag(tokenize(sentence))
-            first_word, first_tag = pos_tags[0]
-            if first_tag in ['VB', 'VBP'] or first_word == 'RT':
-                return True
-        return False
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        X_tagged = pd.Series(X).apply(self.starting_verb)
-        return pd.DataFrame(X_tagged)
-
-# Function to build a machine learning pipeline
-def build_pipeline(clf=AdaBoostClassifier()):
-    """
-    Build a machine learning pipeline.
-
-    Args:
-        clf: Classifier to be used in the pipeline.
-
-    Returns:
-        Pipeline: Machine learning pipeline.
-    """
+def build_model():
     pipeline = Pipeline([
-        ('features', FeatureUnion([
-            ('text_pipeline', Pipeline([
-                ('vect', CountVectorizer(tokenizer=tokenize)),
-                ('tfidf', TfidfTransformer())
-            ])),
-            ('starting_verb', StartingVerbExtractor())
-        ])),
-        ('clf', MultiOutputClassifier(clf))
+        ('vect', CountVectorizer(tokenizer=tokenize)),
+        ('tfidf', TfidfTransformer()),
+        ('clf', MultiOutputClassifier(lgb.LGBMClassifier()))
     ])
-
-    return pipeline
-
-# Function to train the pipeline
-def train_pipeline(pipeline, X_train, y_train):
-    """
-    Train the machine learning pipeline.
-
-    Args:
-        pipeline (Pipeline): Machine learning pipeline.
-        X_train (pd.Series): Training features.
-        y_train (pd.DataFrame): Training labels.
-
-    Returns:
-        GridSearchCV: Trained model.
-    """
-    parameters = {
-        'clf__estimator__learning_rate': [0.5, 1.0],
-        'clf__estimator__n_estimators': [10, 20]
+    parameter = {
+        'clf__estimator__n_estimators' : [50, 100]
     }
-
-    cv = GridSearchCV(pipeline, param_grid=parameters, cv=5, n_jobs=-1, verbose=3)
-    cv.fit(X_train, y_train)
+    cv = GridSearchCV(pipeline, param_grid=parameter, verbose=3)
 
     return cv
 
-# Function to evaluate the model
 def evaluate_model(model, X_test, y_test, category_names):
-    """
-    Evaluate the machine learning model.
+    y_pred = model.predict(X_test)
+    print(classification_report(y_test, y_pred, target_names=category_names))
 
-    Args:
-        model: Trained model.
-        X_test (pd.Series): Testing features.
-        y_test (pd.DataFrame): Testing labels.
-        category_names (list): List of category names.
-    """
-    y_pred_test = model.predict(X_test)
-
-    # classification report
-    print(classification_report(y_test.values, y_pred_test, target_names=category_names))
-
-# Function to save the model
 def save_model(model, model_filepath):
-    """
-    Save the trained model.
+    pickle.dump(model, open(model_filepath, 'wb'))
 
-    Args:
-        model: Trained model.
-        model_filepath (str): Filepath to save the model.
-    """
-    with open(model_filepath, 'wb') as f:
-        pickle.dump(model, f)
+def main():
+    if len(sys.argv) == 3:
+        database_filepath, model_filepath = sys.argv[1:]
+        print('Loading data...\n    DATABASE: {}'.format(database_filepath))
+        X, y, category_names = load_data(database_filepath)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+        print('Building model...')
+        model = build_model()
+
+        print('Training model...')
+        model.fit(X_train, y_train)
+
+        print('Evaluating model...')
+        evaluate_model(model, X_test, y_test, category_names)
+
+        print('Saving model...\n    MODEL: {}'.format(model_filepath))
+        save_model(model, model_filepath)
+
+        print('Trained model saved!')
+
+    else:
+        print('Please provide the filepath of the disaster messages database '\
+              'as the first argument and the filepath of the pickle file to '\
+              'save the model to as the second argument. \n\nExample: python '\
+              'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
+
+
+if __name__ == '__main__':
+    main()
